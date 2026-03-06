@@ -1,0 +1,20 @@
+# Django core
+Django==5.0.4
+djangorestframework==3.15.1
+django-environ==0.11.2
+
+# PostgreSQL
+psycopg2-binary==2.9.10
+
+# Redis + Celery
+celery==5.3.6
+redis==5.0.4
+django-celery-beat==2.6.0
+
+# Auth
+djangorestframework-simplejwt==5.3.1
+
+# Utilities
+python-decouple==3.8
+django-cors-headers==4.3.1
+shortuuid==1.0.13
