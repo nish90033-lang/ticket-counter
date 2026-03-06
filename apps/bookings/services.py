@@ -40,7 +40,8 @@ def lock_seat(seat_id: int, user) -> SeatLock:
         try:
             seat = Seat.objects.select_for_update().get(id=seat_id)
         except Seat.DoesNotExist:
-            raise ValueError(f"Seat {seat_id} does not exist")
+            from .exceptions import SeatNotFound
+            raise SeatNotFound(f"Seat {seat_id} does not exist")
 
         # Guard 1 — permanently booked
         if seat.is_reserved:
@@ -103,7 +104,7 @@ def lock_seat(seat_id: int, user) -> SeatLock:
 # - Creates the Booking
 # - Marks seat reserved + bumps version (single query, atomic)
 # ─────────────────────────────────────────────────────────────────
-def confirm_booking(seat_id: int, user, payment_ref: str = None) -> Booking:
+def confirm_booking(seat_id: int, user, payment_ref: str = None, expected_version: int = None) -> Booking:
 
     with transaction.atomic():
         seat = Seat.objects.select_for_update().get(id=seat_id)
@@ -129,7 +130,20 @@ def confirm_booking(seat_id: int, user, payment_ref: str = None) -> Booking:
         if Booking.objects.filter(seat=seat).exists():
             raise BookingAlreadyExists()
 
-        # Delete lock → create booking → mark seat reserved
+        # Single query optimistic locking — check BEFORE creating booking
+        # expected_version comes from before payment so we detect concurrent changes
+        version_to_check = expected_version if expected_version is not None else seat.version
+        rows_updated = Seat.objects.filter(
+            id=seat.id,
+            version=version_to_check   # stale version → WHERE matches 0 rows
+        ).update(
+            is_reserved=True,
+            version=version_to_check + 1
+        )
+
+        if rows_updated == 0:
+            raise StaleVersionError("Concurrent modification detected. Please retry.")
+
         seat_lock.delete()
 
         booking = Booking.objects.create(
@@ -137,19 +151,6 @@ def confirm_booking(seat_id: int, user, payment_ref: str = None) -> Booking:
             user=user,
             status=Booking.Status.CONFIRMED,
         )
-
-        # Single query optimistic locking write
-        # rows_updated=0 → version was stale → another transaction won the race
-        rows_updated = Seat.objects.filter(
-            id=seat.id,
-            version=seat.version        # stale version → WHERE matches 0 rows
-        ).update(
-            is_reserved=True,
-            version=seat.version + 1
-        )
-
-        if rows_updated == 0:
-            raise StaleVersionError("Concurrent modification detected. Please retry.")
 
     return booking
 
@@ -160,10 +161,11 @@ def confirm_booking(seat_id: int, user, payment_ref: str = None) -> Booking:
 def release_lock(seat_id: int, user) -> None:
     with transaction.atomic():
         try:
-            seat_lock = SeatLock.objects.select_for_update().get(
-                seat_id=seat_id,
-                user=user
-            )
-            seat_lock.delete()
+            seat_lock = SeatLock.objects.select_for_update().get(seat_id=seat_id)
         except SeatLock.DoesNotExist:
-            pass  # already gone — nothing to do
+            return  # already gone
+
+        if seat_lock.user_id != user.id:
+            raise LockOwnedByAnotherUser("This lock belongs to a different user.")
+
+        seat_lock.delete()

@@ -2,6 +2,9 @@ class SeatAlreadyReserved(Exception):
     """Seat has a confirmed booking — permanently taken."""
     pass
 
+# Alias used in tests
+SeatAlreadyBooked = SeatAlreadyReserved
+
 
 class SeatAlreadyLocked(Exception):
     """
@@ -36,6 +39,9 @@ class LockOwnedByAnotherUser(Exception):
     """
     pass
 
+# Alias used in tests
+NotLockOwner = LockOwnedByAnotherUser
+
 
 class StaleVersionError(Exception):
     """
@@ -48,4 +54,9 @@ class StaleVersionError(Exception):
 
 class BookingAlreadyExists(Exception):
     """Booking record already exists for this seat — idempotency guard."""
+    pass
+
+
+class SeatNotFound(Exception):
+    """Seat with given ID does not exist."""
     pass
