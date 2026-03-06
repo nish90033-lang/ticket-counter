@@ -2,13 +2,11 @@ databases:
   - name: ticket-db
     databaseName: ticket_db
     user: ticket_user
-    plan: free
 
 services:
   # ── Django Web ────────────────────────────────────────────────
   - type: web
     name: ticket-web
-    plan: starter
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: python manage.py migrate && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
@@ -36,7 +34,6 @@ services:
   # ── Celery Worker ─────────────────────────────────────────────
   - type: worker
     name: ticket-celery
-    plan: starter
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: celery -A config worker --loglevel=info
@@ -58,7 +55,6 @@ services:
   # ── Celery Beat ───────────────────────────────────────────────
   - type: worker
     name: ticket-celery-beat
-    plan: starter
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: celery -A config beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
@@ -80,13 +76,11 @@ services:
   # ── Redis ─────────────────────────────────────────────────────
   - type: redis
     name: ticket-redis
-    plan: free
     ipAllowList: []
 
   # ── React Frontend ────────────────────────────────────────────
   - type: web
     name: ticket-frontend
-    plan: starter
     runtime: static
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/dist
