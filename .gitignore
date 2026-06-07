@@ -1,15 +1,10 @@
-cd C:\Users\Nishant\Desktop\ticket_counter
-notepad .gitignore
-```
-
-Paste this:
-```
 # Python
 venv/
 __pycache__/
 *.pyc
 *.pyo
 .env
+.env.local
 
 # Django
 *.log
